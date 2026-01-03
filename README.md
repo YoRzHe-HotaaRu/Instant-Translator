@@ -179,4 +179,4 @@ python -m pytest tests/ -v
 
 ---
 
-Made with ❤️ for gamers and language learners
+Made by ClaRity Group
