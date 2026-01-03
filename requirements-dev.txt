@@ -1,0 +1,24 @@
+# Include production dependencies
+-r requirements.txt
+
+# Testing Framework
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.23.0
+pytest-qt>=4.3.0
+pytest-mock>=3.12.0
+coverage>=7.3.0
+
+# Mocking HTTP Requests
+responses>=0.24.0
+aioresponses>=0.7.6
+
+# Code Quality
+flake8>=6.1.0
+mypy>=1.8.0
+black>=24.1.0
+isort>=5.13.0
+
+# Type Stubs
+types-Pillow>=10.0.0
+types-requests>=2.31.0

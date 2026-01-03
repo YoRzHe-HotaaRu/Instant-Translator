@@ -1,0 +1,26 @@
+# Core GUI Framework
+PyQt6>=6.6.0
+
+# Image Processing
+Pillow>=10.0.0
+mss>=9.0.0
+opencv-python>=4.9.0
+
+# OCR Engines
+pytesseract>=0.3.10
+easyocr>=1.7.0
+
+# LLM Integration
+openai>=1.10.0
+httpx>=0.26.0
+
+# Language Detection
+langdetect>=1.0.9
+
+# Windows-specific
+pywin32>=306
+
+# Utilities
+python-dotenv>=1.0.0
+numpy>=1.26.0
+keyboard>=0.13.5
