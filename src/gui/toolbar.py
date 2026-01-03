@@ -35,7 +35,8 @@ class Toolbar(QWidget):
     
     capture_requested = pyqtSignal()
     target_changed = pyqtSignal(object)  # CaptureTarget
-    language_changed = pyqtSignal(str)  # Language code
+    language_changed = pyqtSignal(str)  # Target language code
+    source_language_changed = pyqtSignal(str)  # Source OCR language code
     
     def __init__(
         self,
@@ -50,6 +51,7 @@ class Toolbar(QWidget):
         self._setup_ui()
         self._connect_signals()
         self._populate_targets()
+        self._populate_source_languages()
         self._populate_languages()
     
     def _setup_ui(self) -> None:
@@ -83,14 +85,30 @@ class Toolbar(QWidget):
         
         # Capture button
         self._capture_btn = QPushButton("📸 Capture")
-        self._capture_btn.setToolTip("Capture screenshot (Ctrl+Shift+C)")
+        self._capture_btn.setToolTip("Capture screenshot (Shift+C)")
         self._capture_btn.setMinimumWidth(120)
         layout.addWidget(self._capture_btn)
+        
+        # Separator
+        separator2 = QFrame()
+        separator2.setFrameShape(QFrame.Shape.VLine)
+        separator2.setStyleSheet("background-color: #2D2D3A;")
+        layout.addWidget(separator2)
+        
+        # Source language section (OCR language)
+        source_label = QLabel("Source:")
+        source_label.setStyleSheet("font-weight: 600;")
+        layout.addWidget(source_label)
+        
+        self._source_language_combo = QComboBox()
+        self._source_language_combo.setMinimumWidth(120)
+        self._source_language_combo.setToolTip("Language to detect in images")
+        layout.addWidget(self._source_language_combo)
         
         # Spacer
         layout.addStretch()
         
-        # Language section
+        # Target language section
         lang_label = QLabel("Translate to:")
         lang_label.setStyleSheet("font-weight: 600;")
         layout.addWidget(lang_label)
@@ -112,6 +130,7 @@ class Toolbar(QWidget):
         self._capture_btn.clicked.connect(self._on_capture_clicked)
         self._target_combo.currentIndexChanged.connect(self._on_target_changed)
         self._language_combo.currentIndexChanged.connect(self._on_language_changed)
+        self._source_language_combo.currentIndexChanged.connect(self._on_source_language_changed)
         self._refresh_btn.clicked.connect(self._on_refresh_clicked)
     
     def _populate_targets(self) -> None:
@@ -151,6 +170,25 @@ class Toolbar(QWidget):
         # Select first monitor by default
         if monitors:
             self._target_combo.setCurrentIndex(1)
+    
+    def _populate_source_languages(self) -> None:
+        """Populate the source language (OCR) selection combo box."""
+        self._source_language_combo.clear()
+        
+        # OCR source languages - these are the languages the app can detect
+        source_languages = [
+            ("auto", "🔍 Auto Detect"),
+            ("ko", "🇰🇷 Korean"),
+            ("ch_sim", "🇨🇳 Chinese"),
+            ("ja", "🇯🇵 Japanese"),
+            ("en", "🇬🇧 English"),
+        ]
+        
+        for code, name in source_languages:
+            self._source_language_combo.addItem(name, code)
+        
+        # Default to auto detect
+        self._source_language_combo.setCurrentIndex(0)
     
     def _populate_languages(self) -> None:
         """Populate the language selection combo box."""
@@ -208,6 +246,12 @@ class Toolbar(QWidget):
         if code:
             self.language_changed.emit(code)
     
+    def _on_source_language_changed(self, index: int) -> None:
+        """Handle source language selection change."""
+        code = self._source_language_combo.currentData()
+        if code:
+            self.source_language_changed.emit(code)
+    
     def _on_refresh_clicked(self) -> None:
         """Handle refresh button click."""
         self._selector.refresh()
@@ -220,6 +264,10 @@ class Toolbar(QWidget):
     def get_selected_language(self) -> str:
         """Get the currently selected target language."""
         return self._language_combo.currentData() or "en"
+    
+    def get_selected_source_language(self) -> str:
+        """Get the currently selected source (OCR) language."""
+        return self._source_language_combo.currentData() or "auto"
     
     def set_capture_enabled(self, enabled: bool) -> None:
         """Enable or disable the capture button."""

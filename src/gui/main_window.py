@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
         self._window_selector = WindowSelector(self._screen_capture)
         
         self._ocr_engine = OCREngine(
-            languages=['en', 'ko'],  # English + Korean
+            languages=['en', 'ko', 'ch_sim'],  # English + Korean + Chinese Simplified
             use_tesseract=True,
             use_easyocr=True
         )
@@ -145,6 +145,7 @@ class MainWindow(QMainWindow):
         )
         
         self._current_target_lang = "en"
+        self._current_source_lang = "auto"  # Auto detect by default
         
         # Set up UI
         self._setup_window()
@@ -238,6 +239,7 @@ class MainWindow(QMainWindow):
         """Connect UI signals."""
         self._toolbar.capture_requested.connect(self._on_capture)
         self._toolbar.language_changed.connect(self._on_language_changed)
+        self._toolbar.source_language_changed.connect(self._on_source_language_changed)
         self._translation_panel.retranslate_requested.connect(self._on_retranslate)
     
     def _on_capture(self) -> None:
@@ -296,6 +298,38 @@ class MainWindow(QMainWindow):
         """Handle target language change."""
         self._current_target_lang = lang_code
         self._status_bar.showMessage(f"Target language: {LanguageDetector.get_language_name(lang_code)}")
+    
+    def _on_source_language_changed(self, lang_code: str) -> None:
+        """Handle source (OCR) language change."""
+        self._current_source_lang = lang_code
+        
+        # Update OCR engine with new language
+        if lang_code == "auto":
+            # Auto detect: try all languages
+            languages = ['en', 'ko', 'ch_sim']
+        else:
+            # Specific language: only use that + English
+            languages = [lang_code]
+            if lang_code != 'en':
+                languages.append('en')
+        
+        # Recreate OCR engine with new languages
+        self._ocr_engine = OCREngine(
+            languages=languages,
+            use_tesseract=True,
+            use_easyocr=True
+        )
+        self._worker._ocr_engine = self._ocr_engine
+        
+        lang_name = {
+            "auto": "Auto Detect",
+            "ko": "Korean", 
+            "ch_sim": "Chinese",
+            "ja": "Japanese",
+            "en": "English"
+        }.get(lang_code, lang_code)
+        
+        self._status_bar.showMessage(f"Source language: {lang_name}")
     
     def _on_retranslate(self, text: str) -> None:
         """Handle retranslation request."""

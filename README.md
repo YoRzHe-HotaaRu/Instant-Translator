@@ -26,6 +26,10 @@ The app shows two panels:
 - **Left Panel** - Your captured screenshot
 - **Right Panel** - Extracted text + Translation
 
+![Korean Game Translation](screenshot/game1.png)
+
+![Chinese/Korean Translation](screenshot/game2.png)
+
 ---
 
 ## 🚀 Quick Start

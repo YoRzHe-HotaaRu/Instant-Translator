@@ -133,14 +133,48 @@ class OCREngine:
         
         # Initialize text processor
         self._text_processor = TextProcessor()
+        
+        # EasyOCR readers for different language groups (lazy initialized)
+        self._easyocr_readers: dict = {}
     
-    def _get_easyocr_reader(self) -> "easyocr.Reader":
-        """Get or create EasyOCR reader (lazy initialization)."""
-        if self._easyocr_reader is None:
-            # Map language codes to EasyOCR format
-            easyocr_langs = self._map_languages_to_easyocr(self.languages)
-            self._easyocr_reader = easyocr.Reader(easyocr_langs, gpu=False)
-        return self._easyocr_reader
+    def _get_easyocr_reader(self, lang_group: str = "default") -> "easyocr.Reader":
+        """Get or create EasyOCR reader for a language group (lazy initialization)."""
+        if lang_group not in self._easyocr_readers:
+            # Determine which languages to use based on group
+            if lang_group == "chinese":
+                langs = ['ch_sim', 'en']
+            elif lang_group == "korean":
+                langs = ['ko', 'en']
+            elif lang_group == "japanese":
+                langs = ['ja', 'en']
+            else:
+                # Default - English only
+                langs = ['en']
+            
+            self._easyocr_readers[lang_group] = easyocr.Reader(langs, gpu=False)
+        
+        return self._easyocr_readers[lang_group]
+    
+    def _get_language_groups(self) -> List[str]:
+        """Get the language groups to try based on configured languages."""
+        groups = []
+        mapped = self._map_languages_to_easyocr(self.languages)
+        
+        # Check which groups are needed
+        if 'ch_sim' in mapped or 'ch_tra' in mapped:
+            groups.append("chinese")
+        if 'ko' in mapped:
+            groups.append("korean")
+        if 'ja' in mapped:
+            groups.append("japanese")
+        if 'en' in mapped and not groups:
+            groups.append("default")
+        
+        # If no specific groups, use default
+        if not groups:
+            groups.append("default")
+        
+        return groups
     
     def _map_languages_to_easyocr(self, languages: List[str]) -> List[str]:
         """Map language codes to EasyOCR format."""
@@ -287,50 +321,61 @@ class OCREngine:
         
         import numpy as np
         
-        reader = self._get_easyocr_reader()
-        
         # Convert PIL Image to numpy array
         image_array = np.array(image)
         
-        # Perform OCR
-        results = reader.readtext(image_array)
+        # Try each language group and pick the best result
+        all_results = []
+        lang_groups = self._get_language_groups()
         
-        # Extract text blocks
-        blocks = []
-        texts = []
-        confidences = []
-        
-        for bbox, text, confidence in results:
-            if text.strip():
-                # bbox is [[x1,y1], [x2,y1], [x2,y2], [x1,y2]]
-                x1, y1 = bbox[0]
-                x2, y2 = bbox[2]
+        for lang_group in lang_groups:
+            try:
+                reader = self._get_easyocr_reader(lang_group)
+                results = reader.readtext(image_array)
                 
-                block = TextBlock(
-                    text=text,
-                    x=int(x1),
-                    y=int(y1),
-                    width=int(x2 - x1),
-                    height=int(y2 - y1),
-                    confidence=confidence
-                )
-                blocks.append(block)
-                texts.append(text)
-                confidences.append(confidence)
+                # Extract text blocks
+                blocks = []
+                texts = []
+                confidences = []
+                
+                for bbox, text, confidence in results:
+                    if text.strip():
+                        x1, y1 = bbox[0]
+                        x2, y2 = bbox[2]
+                        
+                        block = TextBlock(
+                            text=text,
+                            x=int(x1),
+                            y=int(y1),
+                            width=int(x2 - x1),
+                            height=int(y2 - y1),
+                            confidence=confidence
+                        )
+                        blocks.append(block)
+                        texts.append(text)
+                        confidences.append(confidence)
+                
+                full_text = ' '.join(texts)
+                avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                
+                if full_text.strip():
+                    all_results.append(OCRResult(
+                        text=full_text,
+                        confidence=avg_confidence,
+                        blocks=blocks,
+                        engine_used=f"easyocr-{lang_group}",
+                        languages_detected=[lang_group]
+                    ))
+            except Exception as e:
+                logger.debug(f"EasyOCR {lang_group} failed: {e}")
+                continue
         
-        # Combine text
-        full_text = ' '.join(texts)
+        if not all_results:
+            raise OCREngineError("EasyOCR failed to extract text with any language group")
         
-        # Calculate average confidence
-        avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-        
-        return OCRResult(
-            text=full_text,
-            confidence=avg_confidence,
-            blocks=blocks,
-            engine_used="easyocr",
-            languages_detected=self.languages
-        )
+        # Return the result with highest confidence
+        best_result = max(all_results, key=lambda r: r.confidence)
+        return best_result
     
     def _select_best_result(self, results: List[OCRResult]) -> OCRResult:
         """
